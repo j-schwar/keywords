@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::{borrow::Borrow, collections::HashMap, hash::Hash};
 
 /// An iterator over ASCII keywords in a string.
 struct AsciiKeywords<'a> {
@@ -73,13 +73,6 @@ pub trait Keywords {
     fn ascii_keywords(&self) -> impl Iterator<Item = &str> + '_;
 }
 
-impl Keywords for str {
-    #[inline]
-    fn ascii_keywords(&self) -> impl Iterator<Item = &str> + '_ {
-        AsciiKeywords::new(self)
-    }
-}
-
 impl Keywords for &str {
     #[inline]
     fn ascii_keywords(&self) -> impl Iterator<Item = &str> + '_ {
@@ -91,6 +84,35 @@ impl Keywords for String {
     #[inline]
     fn ascii_keywords(&self) -> impl Iterator<Item = &str> + '_ {
         AsciiKeywords::new(self)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Match<V> {
+    Exact(V),
+    Prefix(V),
+}
+
+impl<V> PartialOrd for Match<V>
+where
+    V: PartialOrd,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match (self, other) {
+            (Match::Exact(a), Match::Exact(b)) => a.partial_cmp(b),
+            (Match::Prefix(a), Match::Prefix(b)) => a.partial_cmp(b),
+            (Match::Exact(_), Match::Prefix(_)) => Some(std::cmp::Ordering::Less),
+            (Match::Prefix(_), Match::Exact(_)) => Some(std::cmp::Ordering::Greater),
+        }
+    }
+}
+
+impl<V> Ord for Match<V>
+where
+    V: Ord,
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap_or(std::cmp::Ordering::Equal)
     }
 }
 
@@ -130,7 +152,7 @@ where
 
     /// Removes a key-value pair from the `KeywordMap` by its key.
     pub fn remove(&mut self, key: &K) -> Option<V> {
-        let &index = self.keys.get(key)?;
+        let index = self.keys.remove(key)?;
         let value = self.data.remove(index);
 
         // Update the keyword index
@@ -166,6 +188,35 @@ where
     }
 }
 
+impl<K, V> KeywordMap<K, V>
+where
+    K: Keywords + Hash + Eq + Borrow<str>,
+{
+    pub fn find_by_partial_keyword<'a>(&'a self, keyword: &str) -> impl Iterator<Item = Match<&'a V>> {
+        let exact_match = self.keys.get(keyword).copied();
+
+        let iter = self
+            .keyword_index
+            .iter()
+            .filter(move |(k, _)| k.starts_with(keyword))
+            .filter_map(move |(_, index)| {
+                if let Some(exact_match_index) = exact_match {
+                    if *index == exact_match_index {
+                        return None; // Skip exact match if already found
+                    }
+                }
+
+                Some(*index)
+            })
+            .map(|index| Match::Prefix(&self.data[index]));
+
+        exact_match
+            .into_iter()
+            .map(|index| Match::Exact(&self.data[index]))
+            .chain(iter)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -190,5 +241,23 @@ mod tests {
         assert_eq!(map.remove(&"hello world"), Some(1));
         assert_eq!(map.get(&"hello world"), None);
         assert_eq!(map.get(&"testing123"), Some(&2));
+    }
+
+    #[test]
+    fn test_keyword_map_find_by_keyword() {
+        let mut map = KeywordMap::new();
+        map.insert("hello world", 1);
+        map.insert("testing123", 2);
+        map.insert("hello testing", 3);
+        map.insert("test", 4);
+
+        let results: Vec<_> = map.find_by_partial_keyword("hello").collect();
+        assert_eq!(results, vec![Match::Prefix(&1), Match::Prefix(&3)]);
+
+        let results: Vec<_> = map.find_by_partial_keyword("test").collect();
+        assert_eq!(
+            results,
+            vec![Match::Exact(&4), Match::Prefix(&2), Match::Prefix(&3)]
+        );
     }
 }
