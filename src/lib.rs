@@ -1,5 +1,7 @@
 use std::{borrow::Borrow, collections::HashMap, hash::Hash};
 
+use serde::{Deserialize, Serialize};
+
 /// An iterator over ASCII keywords in a string.
 struct AsciiKeywords<'a> {
     s: &'a [u8],
@@ -116,7 +118,7 @@ where
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct KeywordMap<K, V>
 where
     K: Keywords + Hash + Eq,
