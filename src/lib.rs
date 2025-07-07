@@ -95,6 +95,23 @@ pub enum Match<V> {
     Prefix(V),
 }
 
+impl<V> Match<V> {
+    /// Extracts the inner value from the `Match`.
+    pub fn into_inner(self) -> V {
+        match self {
+            Match::Exact(v) | Match::Prefix(v) => v,
+        }
+    }
+}
+
+impl<V> AsRef<V> for Match<V> {
+    fn as_ref(&self) -> &V {
+        match self {
+            Match::Exact(v) | Match::Prefix(v) => v,
+        }
+    }
+}
+
 impl<V> PartialOrd for Match<V>
 where
     V: PartialOrd,
@@ -182,7 +199,7 @@ where
     }
 
     /// Retrieves a value by its key.
-    pub fn get<Q: ?Sized >(&self, key: &Q) -> Option<&V>
+    pub fn get<Q: ?Sized>(&self, key: &Q) -> Option<&V>
     where
         K: Borrow<Q>,
         Q: Hash + Eq,
