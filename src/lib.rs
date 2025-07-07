@@ -153,8 +153,12 @@ where
     }
 
     /// Removes a key-value pair from the `KeywordMap` by its key.
-    pub fn remove(&mut self, key: &K) -> Option<V> {
-        let index = self.keys.remove(key)?;
+    pub fn remove<Q: ?Sized>(&mut self, key: &Q) -> Option<V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        let index = self.keys.remove(key.borrow())?;
         let value = self.data.remove(index);
 
         // Update the keyword index
@@ -178,14 +182,24 @@ where
     }
 
     /// Retrieves a value by its key.
-    pub fn get(&self, key: &K) -> Option<&V> {
-        self.keys.get(key).and_then(|&index| self.data.get(index))
+    pub fn get<Q: ?Sized >(&self, key: &Q) -> Option<&V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        self.keys
+            .get(key.borrow())
+            .and_then(|&index| self.data.get(index))
     }
 
     /// Retrieves a mutable reference to a value by its key.
-    pub fn get_mut(&mut self, key: &K) -> Option<&mut V> {
+    pub fn get_mut<Q: ?Sized>(&mut self, key: &Q) -> Option<&mut V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
         self.keys
-            .get(key)
+            .get(key.borrow())
             .and_then(|&index| self.data.get_mut(index))
     }
 }
@@ -194,7 +208,10 @@ impl<K, V> KeywordMap<K, V>
 where
     K: Keywords + Hash + Eq + Borrow<str>,
 {
-    pub fn find_by_partial_keyword<'a>(&'a self, keyword: &str) -> impl Iterator<Item = Match<&'a V>> {
+    pub fn find_by_partial_keyword<'a>(
+        &'a self,
+        keyword: &str,
+    ) -> impl Iterator<Item = Match<&'a V>> {
         let exact_match = self.keys.get(keyword).copied();
 
         let iter = self
