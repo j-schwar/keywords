@@ -135,7 +135,7 @@ where
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeywordMap<K, V>
 where
     K: Keywords + Hash + Eq,
@@ -250,6 +250,15 @@ where
             .into_iter()
             .map(|index| Match::Exact(&self.data[index]))
             .chain(iter)
+    }
+}
+
+impl<K, V> Default for KeywordMap<K, V>
+where
+    K: Keywords + Hash + Eq,
+{
+    fn default() -> Self {
+        Self::new()
     }
 }
 
