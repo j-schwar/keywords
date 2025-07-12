@@ -219,6 +219,11 @@ where
             .get(key.borrow())
             .and_then(|&index| self.data.get_mut(index))
     }
+
+    /// Returns the number of items in the `KeywordMap`.
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
 }
 
 impl<K, V> KeywordMap<K, V>
