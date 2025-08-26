@@ -112,6 +112,14 @@ impl<V> AsRef<V> for Match<V> {
     }
 }
 
+impl<V> AsMut<V> for Match<V> {
+    fn as_mut(&mut self) -> &mut V {
+        match self {
+            Match::Exact(v) | Match::Prefix(v) => v,
+        }
+    }
+}
+
 impl<V> PartialOrd for Match<V>
 where
     V: PartialOrd,
